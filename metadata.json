@@ -1,0 +1,7 @@
+{
+  "name": "LingoLeap Taiwan - AI Reading Tutor",
+  "description": "An interactive reading companion for Taiwan students (Grade 3+) using Gemini Live API for real-time tutoring, STT for accuracy assessment, and TTS for modeling pronunciation.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
