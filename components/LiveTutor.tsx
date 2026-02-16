@@ -1,7 +1,8 @@
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Story, ReadingAttempt, LiveMessage } from '../types';
 import { correctHomophones } from '../utils/pinyin';
+import { PolyphonicProcessor, buildZhuyinString } from '../utils/polyphonicProcessor';
 
 /* ------------------------------------------------------------------ */
 /*  Canned response pools — randomly selected to avoid repetition     */
@@ -187,6 +188,8 @@ const LiveTutor: React.FC<LiveTutorProps> = ({
   const [streamingUserInput, setStreamingUserInput] = useState('');
   const [lineResults, setLineResults] = useState<LineResult[]>([]);
   const [streak, setStreak] = useState(0);
+  const [zhuyinEnabled, setZhuyinEnabled] = useState(true);
+  const [zhuyinReady, setZhuyinReady] = useState(false);
 
   const isAdvancingRef = useRef(false);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -218,6 +221,40 @@ const LiveTutor: React.FC<LiveTutorProps> = ({
       .catch(() => {});
   }, []);
 
+  /* ---- initialize polyphonic processor for zhuyin ---- */
+  useEffect(() => {
+    PolyphonicProcessor.instance.loadPolyphonicData()
+      .then(() => setZhuyinReady(true))
+      .catch((err) => console.error('Failed to load zhuyin data:', err));
+  }, []);
+
+  /** Whether zhuyin rendering is active */
+  const zhuyinActive = zhuyinReady && zhuyinEnabled;
+
+  /** Process a Chinese text string through the polyphonic processor for zhuyin rendering */
+  const processZhuyin = useCallback((text: string): string => {
+    if (!zhuyinActive) return text;
+    try {
+      const processed = PolyphonicProcessor.instance.process(text);
+      return buildZhuyinString(processed);
+    } catch {
+      return text;
+    }
+  }, [zhuyinActive]);
+
+  /** Pre-process each story line through the polyphonic processor for zhuyin rendering */
+  const zhuyinLines = useMemo(() => {
+    if (!zhuyinActive) return null;
+    try {
+      return story.content.map((line) => {
+        const processed = PolyphonicProcessor.instance.process(line);
+        return buildZhuyinString(processed);
+      });
+    } catch {
+      return null;
+    }
+  }, [story.content, zhuyinActive]);
+
   /* ---- cleanup on unmount ---- */
   useEffect(() => {
     return () => {
@@ -238,8 +275,10 @@ const LiveTutor: React.FC<LiveTutorProps> = ({
 
     if (!cleaned) return; // nothing to evaluate
 
-    // Step 1: Homophone correction
-    const corrected = correctHomophones(cleaned, targetText);
+    // Step 1: Homophone correction (strip punctuation from target so alignment
+    // is purely between Chinese characters — STT never produces 「」！ etc.)
+    const targetForAlignment = normalizeForComparison(targetText);
+    const corrected = correctHomophones(cleaned, targetForAlignment);
 
     // Step 2: Match rate
     const matchRate = computeMatchRate(corrected, targetText);
@@ -505,7 +544,14 @@ const LiveTutor: React.FC<LiveTutorProps> = ({
   /* ================================================================ */
 
   return (
-    <div className="flex flex-1 h-full bg-[#0d1117] overflow-hidden">
+    <div
+      className="flex flex-1 h-full bg-[#0d1117] overflow-hidden"
+      style={{
+        fontFamily: zhuyinActive
+          ? "'BpmfIansui', 'Iansui', 'Noto Sans TC', sans-serif"
+          : "'Iansui', 'Noto Sans TC', sans-serif",
+      }}
+    >
       {/* SIDEBAR: Explorer */}
       <div
         className={`${showExplorer ? 'w-64' : 'w-0'} transition-all duration-300 bg-[#0d1117] border-r border-[#30363d] flex flex-col overflow-hidden`}
@@ -532,20 +578,22 @@ const LiveTutor: React.FC<LiveTutorProps> = ({
                   setStreak(0);
                   onSelectStory(s);
                 }}
-                className={`w-full text-left px-4 py-2 text-xs flex items-center gap-2 group transition-all rounded-md ${
+                className={`w-full text-left px-4 py-2 text-sm flex items-center gap-2 group transition-all rounded-md ${
+                  zhuyinActive ? 'leading-[2.4]' : ''
+                } ${
                   s.id === story.id
                     ? 'bg-[#21262d] text-white'
                     : 'text-slate-500 hover:bg-[#21262d] hover:text-slate-300'
                 }`}
               >
                 <svg
-                  className={`w-3.5 h-3.5 ${s.id === story.id ? 'text-indigo-400' : 'text-slate-600'}`}
+                  className={`w-3.5 h-3.5 flex-shrink-0 ${s.id === story.id ? 'text-indigo-400' : 'text-slate-600'}`}
                   fill="currentColor"
                   viewBox="0 0 24 24"
                 >
                   <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z" />
                 </svg>
-                {s.filename}
+                <span className={zhuyinActive ? 'leading-[2.4]' : ''}>{processZhuyin(s.filename)}</span>
               </button>
             ))}
           </div>
@@ -565,9 +613,21 @@ const LiveTutor: React.FC<LiveTutorProps> = ({
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
             </svg>
           </button>
-          <div className="h-full px-4 flex items-center bg-[#0d1117] border-t-2 border-indigo-500 border-x border-[#30363d] text-xs text-slate-200 gap-2 font-mono">
-            {story.filename}
+          <div className="h-full px-4 flex items-center bg-[#0d1117] border-t-2 border-indigo-500 border-x border-[#30363d] text-xs text-slate-200 gap-2">
+            {processZhuyin(story.filename)}
           </div>
+          <div className="flex-1" />
+          <button
+            onClick={() => setZhuyinEnabled(!zhuyinEnabled)}
+            className={`px-2.5 py-1 rounded text-xs transition-colors ${
+              zhuyinEnabled && zhuyinReady
+                ? 'bg-indigo-600/80 text-white hover:bg-indigo-500'
+                : 'bg-[#30363d] text-slate-400 hover:bg-[#3d444d]'
+            }`}
+            title={zhuyinEnabled ? '隱藏注音' : '顯示注音'}
+          >
+            注音 {zhuyinEnabled ? 'ON' : 'OFF'}
+          </button>
         </div>
 
         <div className="flex-1 p-8 lg:p-16 overflow-y-auto custom-scrollbar">
@@ -583,18 +643,20 @@ const LiveTutor: React.FC<LiveTutorProps> = ({
                 }`}
               >
                 <p
-                  className={`text-4xl lg:text-5xl leading-[1.6] ${
+                  className={`text-2xl lg:text-3xl ${
+                    zhuyinActive ? 'leading-[2.6]' : 'leading-[1.6]'
+                  } ${
                     idx === currentLineIndex ? 'text-white font-bold' : 'text-slate-400'
                   }`}
                 >
-                  {line}
+                  {zhuyinLines ? zhuyinLines[idx] : line}
                 </p>
               </div>
             ))}
           </div>
         </div>
 
-        <div className="h-7 bg-[#161b22] border-t border-[#30363d] flex items-center px-4 justify-between text-[10px] font-mono text-slate-500 uppercase">
+        <div className="h-7 bg-[#161b22] border-t border-[#30363d] flex items-center px-4 justify-between text-[10px] text-slate-500 uppercase">
           <div className="flex gap-4">
             <span>Ln {currentLineIndex + 1}, Col 1</span>
             <span>UTF-8</span>
@@ -626,13 +688,15 @@ const LiveTutor: React.FC<LiveTutorProps> = ({
                 {m.role === 'user' ? 'STUDENT' : 'TUTOR'}
               </span>
               <div
-                className={`px-3 py-2 rounded-2xl text-xs max-w-[90%] shadow-lg leading-relaxed ${
+                className={`px-3 py-2 rounded-2xl text-sm max-w-[90%] shadow-lg ${
+                  zhuyinActive ? 'leading-[2.4]' : 'leading-relaxed'
+                } ${
                   m.role === 'user'
                     ? 'bg-indigo-600 text-white rounded-tr-none'
                     : 'bg-[#21262d] text-slate-200 border border-[#30363d] rounded-tl-none'
                 }`}
               >
-                {m.text}
+                {processZhuyin(m.text)}
               </div>
             </div>
           ))}
@@ -642,8 +706,8 @@ const LiveTutor: React.FC<LiveTutorProps> = ({
               <span className="text-[9px] font-bold text-green-500 mb-0.5 uppercase animate-pulse">
                 LISTENING
               </span>
-              <div className="px-3 py-2 rounded-2xl text-xs bg-green-900/30 text-green-200 border border-green-700/30 rounded-tl-none">
-                請朗讀上方的句子
+              <div className={`px-3 py-2 rounded-2xl text-sm bg-green-900/30 text-green-200 border border-green-700/30 rounded-tl-none ${zhuyinActive ? 'leading-[2.4]' : ''}`}>
+                {processZhuyin('請朗讀上方的句子')}
               </div>
             </div>
           )}
@@ -653,8 +717,8 @@ const LiveTutor: React.FC<LiveTutorProps> = ({
               <span className="text-[9px] font-bold text-indigo-500 mb-0.5 uppercase animate-pulse">
                 LISTENING...
               </span>
-              <div className="px-3 py-2 rounded-2xl text-xs bg-indigo-600/60 text-indigo-100 rounded-tr-none max-w-[90%] border border-indigo-500/30">
-                {streamingUserInput}
+              <div className={`px-3 py-2 rounded-2xl text-sm bg-indigo-600/60 text-indigo-100 rounded-tr-none max-w-[90%] border border-indigo-500/30 ${zhuyinActive ? 'leading-[2.4]' : ''}`}>
+                {processZhuyin(streamingUserInput)}
               </div>
             </div>
           )}
@@ -664,8 +728,8 @@ const LiveTutor: React.FC<LiveTutorProps> = ({
               <span className="text-[9px] font-bold text-indigo-500 mb-0.5 uppercase animate-pulse">
                 NEXT...
               </span>
-              <div className="px-3 py-2 rounded-2xl text-xs bg-[#21262d] text-indigo-300 border border-indigo-900/30 rounded-tl-none">
-                正在前往下一句...
+              <div className={`px-3 py-2 rounded-2xl text-sm bg-[#21262d] text-indigo-300 border border-indigo-900/30 rounded-tl-none ${zhuyinActive ? 'leading-[2.4]' : ''}`}>
+                {processZhuyin('正在前往下一句...')}
               </div>
             </div>
           )}
@@ -673,10 +737,10 @@ const LiveTutor: React.FC<LiveTutorProps> = ({
 
         {/* Controls */}
         <div className="flex-shrink-0 p-3 bg-[#161b22] border-t border-[#30363d] space-y-2">
-          <div className="h-10 p-2 rounded-lg bg-black/40 border border-[#30363d] text-[11px] text-indigo-300 font-mono overflow-hidden">
-            {streamingUserInput || (
+          <div className={`h-10 p-2 rounded-lg bg-black/40 border border-[#30363d] text-xs text-indigo-300 overflow-hidden ${zhuyinActive ? 'leading-[2.4]' : ''}`}>
+            {streamingUserInput ? processZhuyin(streamingUserInput) : (
               <span className="text-slate-800 italic">
-                {isPreparing ? '正在準備語音辨識...' : isSessionActive ? '正在聆聽您的朗讀...' : '點擊「開始朗讀」開始'}
+                {processZhuyin(isPreparing ? '正在準備語音辨識...' : isSessionActive ? '正在聆聽您的朗讀...' : '點擊「開始朗讀」開始')}
               </span>
             )}
           </div>
@@ -690,7 +754,7 @@ const LiveTutor: React.FC<LiveTutorProps> = ({
                 className="flex-1 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2 bg-slate-800 text-slate-400 cursor-wait"
               >
                 <div className="w-3 h-3 border-2 border-slate-400 border-t-transparent rounded-full animate-spin" />
-                準備中...
+                {processZhuyin('準備中...')}
               </button>
             ) : isSessionActive ? (
               <button
@@ -705,7 +769,7 @@ const LiveTutor: React.FC<LiveTutorProps> = ({
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
                 </svg>
-                {isAdvancing ? '請稍候...' : '完成這句'}
+                {processZhuyin(isAdvancing ? '請稍候...' : '完成這句')}
               </button>
             ) : (
               <button
@@ -718,7 +782,7 @@ const LiveTutor: React.FC<LiveTutorProps> = ({
                 }`}
               >
                 <div className="w-2.5 h-2.5 bg-white rounded-full" />
-                {isAdvancing ? '請稍候...' : '開始朗讀'}
+                {processZhuyin(isAdvancing ? '請稍候...' : '開始朗讀')}
               </button>
             )}
           </div>
@@ -730,13 +794,15 @@ const LiveTutor: React.FC<LiveTutorProps> = ({
                 setCurrentLineIndex(prev => Math.max(0, prev - 1));
               }}
               disabled={currentLineIndex === 0}
-              className={`flex-1 py-2 rounded-lg text-[10px] font-bold border border-[#30363d] ${
+              className={`flex-1 py-2 rounded-lg text-xs font-bold border border-[#30363d] ${
+                zhuyinActive ? 'leading-[2.4]' : ''
+              } ${
                 currentLineIndex === 0
                   ? 'bg-slate-900 text-slate-700 cursor-not-allowed'
                   : 'bg-slate-800 hover:bg-slate-700 text-slate-400'
               }`}
             >
-              上一句
+              {processZhuyin('上一句')}
             </button>
             <button
               onClick={() => {
@@ -747,18 +813,18 @@ const LiveTutor: React.FC<LiveTutorProps> = ({
                   handleFinish();
                 }
               }}
-              className="flex-1 py-2 bg-slate-800 hover:bg-slate-700 text-slate-400 rounded-lg text-[10px] font-bold border border-[#30363d]"
+              className={`flex-1 py-2 bg-slate-800 hover:bg-slate-700 text-slate-400 rounded-lg text-xs font-bold border border-[#30363d] ${zhuyinActive ? 'leading-[2.4]' : ''}`}
             >
-              {currentLineIndex === story.content.length - 1 ? '觀看總結報告' : '下一句'}
+              {processZhuyin(currentLineIndex === story.content.length - 1 ? '觀看總結報告' : '下一句')}
             </button>
           </div>
 
           {isSessionActive && (
             <button
               onClick={stopSession}
-              className="w-full py-1.5 rounded-lg text-[10px] font-bold text-slate-600 hover:text-slate-400 transition-colors"
+              className={`w-full py-1.5 rounded-lg text-xs font-bold text-slate-600 hover:text-slate-400 transition-colors ${zhuyinActive ? 'leading-[2.4]' : ''}`}
             >
-              停止朗讀
+              {processZhuyin('停止朗讀')}
             </button>
           )}
         </div>
