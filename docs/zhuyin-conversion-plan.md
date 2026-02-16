@@ -2,7 +2,7 @@
 
 ## Overview
 Convert Flutter zhuyinfuhao processing code from `learning-to-read-chinese/lib/` to TypeScript
-for `lingoleap-ai-reading-tutor` to support zhuyin annotations including polyphonic characters.
+for `ai-reading-tutor` to support zhuyin annotations including polyphonic characters.
 
 ## Source Files (Flutter/Dart)
 | File | Purpose | Lines |

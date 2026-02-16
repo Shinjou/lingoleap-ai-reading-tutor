@@ -2,7 +2,7 @@
 
 ## Context
 
-LingoLeap is a reading tutor for low-confidence elementary students learning
+AI Reading Tutor is a reading tutor for low-confidence elementary students learning
 to read Chinese aloud. The primary goal is to build reading fluency and grit,
 not to test pronunciation accuracy.
 

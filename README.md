@@ -1,42 +1,53 @@
-## Run Locally
+# AI Reading Tutor — Taiwan Edition
 
-The project uses:
-TypeScript -- all source files are .tsx / .ts (React components, utilities, configs)
-HTML -- index.html (Vite entry point)
-CSS -- via Tailwind CSS utility classes (inline in JSX)
-No plain JavaScript files. It's a TypeScript-only codebase built with React 19, Vite, and Recharts.
+A browser-based Mandarin Chinese reading tutor for elementary school students in Taiwan.
+Students read stories aloud, receive instant pronunciation feedback via Speech-to-Text,
+and can toggle Zhuyin (注音符號) annotations for phonetic support.
 
+## New here? Start with the onboarding guide
 
-**Prerequisites:**  Node.js
+**[docs/onboarding.md](docs/onboarding.md)** — A comprehensive guide covering:
+- **What** the project does and its key capabilities
+- **Why** each design decision was made
+- **How** the code works (data flow, architecture, zhuyin rendering, homophone correction)
+- Getting started, project structure, glossary, and common tasks
 
+## Quick Start
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
-=======
-Can this project run in Chrome, Edge and Safari?
+**Prerequisites:** Node.js (v18+), Chrome or Edge (Web Speech API required)
 
-Chrome and Edge: Yes, fully supported. Both are Chromium-based and have robust Web Speech API support, which is the critical dependency for STT.
-Safari: Partially — with significant caveats.
-The project's main browser-compatibility bottleneck is the Web Speech API (SpeechRecognition). Here's the breakdown:
-Feature	Chrome	Edge	Safari (14.1+)
-SpeechRecognition	Full	Full	Supported but limited
-continuous = true	Works well	Works well	Unreliable — may stop after a few seconds
-interimResults	Works well	Works well	May behave differently
-cmn-Hant-TW locale	Works	Works	May fall back to generic Chinese
-getUserMedia (mic)	Full	Full	Full
-React / Vite / Recharts	Full	Full	Full
-ResizeObserver	Full	Full	Full
-The code already handles the API detection gracefully:
-LiveTutor.tsx
-Lines 119-120
-const SpeechRecognition =
-  (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-const SpeechRecognition =  (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-But the session model (which relies on continuous = true and auto-reconnect) is specifically tuned for Chrome's behavior. Safari's SpeechRecognition implementation is known to:
-Not honor continuous = true reliably
-Require user gesture to restart recognition
-Have different timeout behavior
-Bottom line: Chrome and Edge will work great. Safari will load the app fine, but the STT reading session is likely to have issues. If Safari support is important, the most robust path would be to add a server-side STT fallback (e.g., Google Cloud Speech-to-Text or Whisper API) for non-Chromium browsers. Would you like me to look into that?
+```bash
+npm install
+npm run dev
+# → opens at http://localhost:3000
+```
+
+## Browser Support
+
+| Feature | Chrome | Edge | Safari |
+|---|---|---|---|
+| SpeechRecognition | Full | Full | Limited — `continuous` mode unreliable |
+| `cmn-Hant-TW` locale | Works | Works | May fall back to generic Chinese |
+| Microphone access | Full | Full | Full |
+| React / Vite / Recharts | Full | Full | Full |
+
+The core STT reading session is tuned for Chrome/Edge. Safari will load the app but the
+speech recognition session may have issues with `continuous = true` and auto-reconnect.
+
+## Tech Stack
+
+- **React 19** + **TypeScript 5** + **Vite 6**
+- **Web Speech API** — browser-native STT, no API keys needed
+- **Recharts** — assessment report charts
+- **Tailwind CSS** — utility-first styling (CDN)
+- **BpmfIansui / Iansui fonts** — zhuyin annotation rendering
+
+## Version History
+
+| Version | Date | Highlights |
+|---|---|---|
+| **0.1.0** | 2026-02-16 | STT evaluation with homophone correction; Zhuyin (注音) support with polyphonic processing; BpmfIansui/Iansui font pair; three-panel VS Code-style UI |
+
+## License
+
+Private — not open source.

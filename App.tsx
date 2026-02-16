@@ -29,7 +29,7 @@ const App: React.FC = () => {
             <div className="bg-indigo-600 w-6 h-6 rounded flex items-center justify-center">
               <span className="text-white font-bold text-xs">L</span>
             </div>
-            <span className="text-sm font-bold text-slate-200">LingoLeap / Taiwan Reading Tutor</span>
+            <span className="text-sm font-bold text-slate-200">AI Reading Tutor / Taiwan</span>
           </div>
         </div>
         
