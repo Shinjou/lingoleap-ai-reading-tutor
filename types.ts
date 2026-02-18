@@ -3,7 +3,8 @@ export enum AppView {
   HOME = 'HOME',
   LIBRARY = 'LIBRARY',
   TUTOR = 'TUTOR',
-  REPORT = 'REPORT'
+  REPORT = 'REPORT',
+  WRITE = 'WRITE',
 }
 
 export interface Story {
