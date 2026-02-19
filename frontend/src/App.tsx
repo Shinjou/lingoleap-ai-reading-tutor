@@ -11,11 +11,12 @@ const EMPTY_ATTEMPT: ReadingAttempt = {
   transcription: '',
   timestamp: 0,
 };
-import StoryLibrary, { MOCK_STORIES } from './pages/student/StoryLibrary';
+import StoryLibrary from './pages/student/StoryLibrary';
 import Intro from './components/reading-steps/Intro';
 import LiveTutor from './components/reading-steps/LiveTutor';
 import VocabPractice from './components/reading-steps/VocabPractice';
 import ComprehensionChat from './components/reading-steps/ComprehensionChat';
+import FullReading from './components/reading-steps/FullReading';
 import AssessmentReport from './components/reading-steps/AssessmentReport';
 import WriteCharacter from './components/stroke-order/WriteCharacter';
 
@@ -153,10 +154,8 @@ const App: React.FC = () => {
         {view === AppView.TUTOR && selectedStory && (
           <LiveTutor
             story={selectedStory}
-            allStories={MOCK_STORIES}
             onFinish={handleFinishReading}
             onCancel={() => setView(AppView.LIBRARY)}
-            onSelectStory={(s) => { setSelectedStory(s); setView(AppView.INTRO); }}
           />
         )}
 
@@ -179,17 +178,11 @@ const App: React.FC = () => {
         )}
 
         {view === AppView.FULL_READING && selectedStory && (
-          <div className="flex-1 flex flex-col items-center justify-center p-8 text-center space-y-4">
-            <div className="text-5xl">📖</div>
-            <h2 className="text-2xl font-bold text-white">全文朗讀</h2>
-            <p className="text-slate-400 max-w-sm">此功能即將推出，敬請期待！</p>
-            <button
-              onClick={() => setView(AppView.VOCAB)}
-              className="mt-4 text-sm text-indigo-400 hover:text-indigo-300 underline"
-            >
-              ← 返回生字練習
-            </button>
-          </div>
+          <FullReading
+            story={selectedStory}
+            onFinish={() => setView(AppView.REPORT)}
+            onBack={() => setView(AppView.VOCAB)}
+          />
         )}
 
         {view === AppView.REPORT && (

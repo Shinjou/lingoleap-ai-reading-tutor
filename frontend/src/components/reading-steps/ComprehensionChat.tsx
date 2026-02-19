@@ -192,7 +192,7 @@ const ComprehensionChat: React.FC<ComprehensionChatProps> = ({
                 key={idx}
                 className="rounded-2xl p-6 border border-transparent hover:border-[#30363d] hover:bg-[#161b22]/40 transition-all"
               >
-                <p className={`text-2xl lg:text-3xl text-slate-300 ${zhuyinActive ? 'leading-[2.6]' : 'leading-[1.7]'}`}>
+                <p className="text-2xl lg:text-3xl text-slate-300 leading-[2.6]">
                   {zhuyinLines ? zhuyinLines[idx] : line}
                 </p>
               </div>
