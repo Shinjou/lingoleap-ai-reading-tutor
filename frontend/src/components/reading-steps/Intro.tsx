@@ -1,6 +1,7 @@
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { Story } from '../../types';
+import { PolyphonicProcessor, buildZhuyinString } from '../zhuyin/polyphonicProcessor';
 
 const CATEGORY_LABEL: Record<string, string> = {
   Fable: '寓言故事',
@@ -17,6 +18,26 @@ interface IntroProps {
 
 const Intro: React.FC<IntroProps> = ({ story, onStartReading, onBack }) => {
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [zhuyinEnabled, setZhuyinEnabled] = useState(true);
+  const [zhuyinReady, setZhuyinReady] = useState(false);
+
+  const zhuyinActive = zhuyinReady && zhuyinEnabled;
+
+  useEffect(() => {
+    PolyphonicProcessor.instance.loadPolyphonicData()
+      .then(() => setZhuyinReady(true))
+      .catch((err) => console.error('Failed to load zhuyin data:', err));
+  }, []);
+
+  const processZhuyin = useCallback((text: string): string => {
+    if (!zhuyinActive) return text;
+    try {
+      const processed = PolyphonicProcessor.instance.process(text);
+      return buildZhuyinString(processed);
+    } catch {
+      return text;
+    }
+  }, [zhuyinActive]);
 
   const speakIntro = useCallback(() => {
     if (!window.speechSynthesis || !story.intro) return;
@@ -58,7 +79,14 @@ const Intro: React.FC<IntroProps> = ({ story, onStartReading, onBack }) => {
   };
 
   return (
-    <div className="flex-1 flex flex-col bg-[#0d1117] overflow-hidden">
+    <div
+      className="flex-1 flex flex-col bg-[#0d1117] overflow-hidden"
+      style={{
+        fontFamily: zhuyinActive
+          ? "'BpmfIansui', 'Iansui', 'Noto Sans TC', sans-serif"
+          : "'Iansui', 'Noto Sans TC', sans-serif",
+      }}
+    >
       {/* Top bar */}
       <div className="h-9 bg-[#161b22] border-b border-[#30363d] flex items-center px-4 gap-3">
         <button
@@ -74,6 +102,17 @@ const Intro: React.FC<IntroProps> = ({ story, onStartReading, onBack }) => {
         <span className="text-xs text-slate-400">{story.title}</span>
         <span className="text-slate-700 text-xs">›</span>
         <span className="text-xs text-indigo-400 font-bold">簡介</span>
+        <div className="flex-1" />
+        <button
+          onClick={() => setZhuyinEnabled(!zhuyinEnabled)}
+          className={`px-2.5 py-1 rounded text-xs transition-colors ${
+            zhuyinEnabled && zhuyinReady
+              ? 'bg-indigo-600/80 text-white hover:bg-indigo-500'
+              : 'bg-[#30363d] text-slate-400 hover:bg-[#3d444d]'
+          }`}
+        >
+          注音 {zhuyinEnabled ? 'ON' : 'OFF'}
+        </button>
       </div>
 
       {/* Main content */}
@@ -94,9 +133,13 @@ const Intro: React.FC<IntroProps> = ({ story, onStartReading, onBack }) => {
                 </span>
                 <span className="text-[10px] text-slate-600">Lv.{story.level}</span>
               </div>
-              <h1 className="text-2xl font-black text-white leading-snug">{story.title}</h1>
+              <h1 className={`text-2xl font-black text-white ${zhuyinActive ? 'leading-[2.6]' : 'leading-snug'}`}>
+                {processZhuyin(story.title)}
+              </h1>
               {story.intro && (
-                <p className="text-xs text-slate-500 leading-relaxed">{story.intro.author}</p>
+                <p className={`text-xs text-slate-400 ${zhuyinActive ? 'leading-[2.4]' : 'leading-relaxed'}`}>
+                  {processZhuyin(story.intro.author)}
+                </p>
               )}
             </div>
           </div>
@@ -110,7 +153,9 @@ const Intro: React.FC<IntroProps> = ({ story, onStartReading, onBack }) => {
                 </svg>
                 <span className="text-xs font-bold text-indigo-400 uppercase tracking-widest">課文簡介</span>
               </div>
-              <p className="text-slate-300 text-base leading-relaxed">{story.intro.background}</p>
+              <p className={`text-slate-300 text-base ${zhuyinActive ? 'leading-[2.4]' : 'leading-relaxed'}`}>
+                {processZhuyin(story.intro.background)}
+              </p>
 
               {/* TTS button */}
               <div className="pt-2">
@@ -144,24 +189,6 @@ const Intro: React.FC<IntroProps> = ({ story, onStartReading, onBack }) => {
             </div>
           )}
 
-          {/* Step indicator */}
-          <div className="flex items-center gap-3">
-            {['簡介', '逐段朗讀', '課文理解', '生字練習', '全文朗讀', '出場卷'].map((label, i) => (
-              <React.Fragment key={label}>
-                <div className={`flex flex-col items-center gap-1 ${i === 0 ? '' : 'opacity-30'}`}>
-                  <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold border ${
-                    i === 0
-                      ? 'bg-indigo-600 border-indigo-500 text-white'
-                      : 'bg-[#161b22] border-[#30363d] text-slate-600'
-                  }`}>
-                    {i + 1}
-                  </div>
-                  <span className="text-[9px] text-slate-600 whitespace-nowrap">{label}</span>
-                </div>
-                {i < 5 && <div className="flex-1 h-px bg-[#30363d]" />}
-              </React.Fragment>
-            ))}
-          </div>
         </div>
       </div>
 

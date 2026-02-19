@@ -13,7 +13,7 @@
 這是一個繁體中文閱讀理解學習平台，目標用戶是台灣三年級至國中生（已進入「read to learn」階段）。
 平台扮演「溫暖但堅定」的蘇格拉底式 AI 助教，透過六步驟引導學生完成閱讀學習。
 
-**目前版本：0.2.2**
+**目前版本：0.2.3**
 **GitHub：** https://github.com/Shinjou/lingoleap-ai-reading-tutor
 
 ---

@@ -1,10 +1,21 @@
 
 import React, { useState } from 'react';
 import { AppView, Story, ReadingAttempt } from './types';
+
+const EMPTY_ATTEMPT: ReadingAttempt = {
+  storyId: '',
+  accuracy: 0,
+  fluency: 0,
+  cpm: 0,
+  mispronouncedWords: [],
+  transcription: '',
+  timestamp: 0,
+};
 import StoryLibrary, { MOCK_STORIES } from './pages/student/StoryLibrary';
 import Intro from './components/reading-steps/Intro';
 import LiveTutor from './components/reading-steps/LiveTutor';
 import VocabPractice from './components/reading-steps/VocabPractice';
+import ComprehensionChat from './components/reading-steps/ComprehensionChat';
 import AssessmentReport from './components/reading-steps/AssessmentReport';
 import WriteCharacter from './components/stroke-order/WriteCharacter';
 
@@ -26,6 +37,10 @@ const App: React.FC = () => {
 
   const handleFinishReading = (attempt: ReadingAttempt) => {
     setLastAttempt(attempt);
+    setView(AppView.COMPREHENSION);
+  };
+
+  const handleFinishComprehension = () => {
     setView(AppView.VOCAB);
   };
 
@@ -35,28 +50,75 @@ const App: React.FC = () => {
 
   return (
     <div className="h-screen flex flex-col bg-[#0d1117] text-slate-300 font-sans overflow-hidden">
-      {/* VS Code Style Header */}
-      <header className="bg-[#161b22] border-b border-[#30363d] h-12 flex items-center justify-between px-4">
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2 cursor-pointer" onClick={() => setView(AppView.HOME)}>
-            <div className="bg-indigo-600 w-6 h-6 rounded flex items-center justify-center">
-              <span className="text-white font-bold text-xs">L</span>
-            </div>
-            <span className="text-sm font-bold text-slate-200">AI Reading Tutor / Taiwan</span>
+      {/* Header */}
+      <header className="bg-[#161b22] border-b border-[#30363d] h-12 flex items-center justify-between px-4 shrink-0">
+        {/* Logo */}
+        <div className="flex items-center gap-2 cursor-pointer shrink-0" onClick={() => setView(AppView.HOME)}>
+          <div className="bg-indigo-600 w-6 h-6 rounded flex items-center justify-center">
+            <span className="text-white font-bold text-xs">L</span>
           </div>
+          <span className="text-sm font-bold text-slate-200 hidden sm:block">AI Reading Tutor</span>
         </div>
-        
-        <div className="flex items-center gap-6">
-          <nav className="flex gap-4 text-xs font-medium">
-            <button onClick={() => setView(AppView.HOME)} className={view === AppView.HOME ? 'text-white' : 'hover:text-white'}>首頁</button>
-            <button onClick={() => setView(AppView.LIBRARY)} className={view === AppView.LIBRARY ? 'text-white' : 'hover:text-white'}>圖書館</button>
-            <button onClick={() => setView(AppView.WRITE)} className={view === AppView.WRITE ? 'text-white' : 'hover:text-white'}>寫字練習</button>
-          </nav>
-          <div className="flex items-center gap-2">
+
+        {/* Step Navigation (upper right) */}
+        <nav className="flex items-center gap-1 text-[11px] font-medium">
+          {/* 首頁 */}
+          <button
+            onClick={() => setView(AppView.HOME)}
+            className={`px-2 py-1 rounded transition-colors ${
+              view === AppView.HOME
+                ? 'bg-indigo-600 text-white'
+                : 'text-slate-400 hover:text-white hover:bg-[#21262d]'
+            }`}
+          >
+            首頁
+          </button>
+
+          <span className="text-slate-700 select-none">·</span>
+
+          {/* Steps 1–6 */}
+          {([
+            { step: 1, label: '簡介',    view: AppView.INTRO,         needsStory: true  },
+            { step: 2, label: '逐段朗讀', view: AppView.TUTOR,         needsStory: true  },
+            { step: 3, label: '生字練習', view: AppView.VOCAB,         needsStory: true  },
+            { step: 4, label: '課文理解', view: AppView.COMPREHENSION, needsStory: true  },
+            { step: 5, label: '全文朗讀', view: AppView.FULL_READING,  needsStory: true  },
+            { step: 6, label: '報告',    view: AppView.REPORT,        needsStory: false },
+          ] as const).map(({ step, label, view: targetView, needsStory }, i, arr) => {
+            const isActive = view === targetView;
+            const isDisabled = needsStory && !selectedStory;
+            return (
+              <React.Fragment key={targetView}>
+                <button
+                  onClick={() => !isDisabled && setView(targetView)}
+                  className={`flex items-center gap-1 px-2 py-1 rounded transition-colors ${
+                    isActive
+                      ? 'bg-indigo-600 text-white'
+                      : isDisabled
+                      ? 'text-slate-700 cursor-not-allowed'
+                      : 'text-slate-400 hover:text-white hover:bg-[#21262d]'
+                  }`}
+                >
+                  <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold shrink-0 ${
+                    isActive ? 'bg-white text-indigo-600' : isDisabled ? 'bg-slate-800 text-slate-600' : 'bg-slate-700 text-slate-300'
+                  }`}>
+                    {step}
+                  </span>
+                  <span className="hidden md:block">{label}</span>
+                </button>
+                {i < arr.length - 1 && (
+                  <span className="text-slate-700 select-none">·</span>
+                )}
+              </React.Fragment>
+            );
+          })}
+
+          {/* User avatar */}
+          <div className="ml-3 flex items-center gap-1 pl-3 border-l border-[#30363d]">
             <div className="w-6 h-6 rounded-full bg-slate-700"></div>
-            <span className="text-[10px] text-slate-500">Lv.12</span>
+            <span className="text-[10px] text-slate-500 hidden sm:block">Lv.12</span>
           </div>
-        </div>
+        </nav>
       </header>
 
       <main className="flex-1 flex flex-col overflow-hidden">
@@ -98,13 +160,36 @@ const App: React.FC = () => {
           />
         )}
 
-        {view === AppView.VOCAB && selectedStory && lastAttempt && (
-          <VocabPractice
+        {view === AppView.COMPREHENSION && selectedStory && (
+          <ComprehensionChat
             story={selectedStory}
-            attempt={lastAttempt}
-            onFinish={handleFinishVocab}
+            attempt={lastAttempt ?? EMPTY_ATTEMPT}
+            onFinish={handleFinishComprehension}
             onBack={() => setView(AppView.TUTOR)}
           />
+        )}
+
+        {view === AppView.VOCAB && selectedStory && (
+          <VocabPractice
+            story={selectedStory}
+            attempt={lastAttempt ?? EMPTY_ATTEMPT}
+            onFinish={handleFinishVocab}
+            onBack={() => setView(AppView.COMPREHENSION)}
+          />
+        )}
+
+        {view === AppView.FULL_READING && selectedStory && (
+          <div className="flex-1 flex flex-col items-center justify-center p-8 text-center space-y-4">
+            <div className="text-5xl">📖</div>
+            <h2 className="text-2xl font-bold text-white">全文朗讀</h2>
+            <p className="text-slate-400 max-w-sm">此功能即將推出，敬請期待！</p>
+            <button
+              onClick={() => setView(AppView.VOCAB)}
+              className="mt-4 text-sm text-indigo-400 hover:text-indigo-300 underline"
+            >
+              ← 返回生字練習
+            </button>
+          </div>
         )}
 
         {view === AppView.REPORT && (

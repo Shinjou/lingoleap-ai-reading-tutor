@@ -234,8 +234,12 @@ const LiveTutor: React.FC<LiveTutorProps> = ({
   const [zhuyinEnabled, setZhuyinEnabled] = useState(true);
   const [zhuyinReady, setZhuyinReady] = useState(false);
   const [isTtsSpeaking, setIsTtsSpeaking] = useState(false);
+  const [rightPanelWidth, setRightPanelWidth] = useState(320);
 
   const isAdvancingRef = useRef(false);
+  const isDraggingRef = useRef(false);
+  const dragStartXRef = useRef(0);
+  const dragStartWidthRef = useRef(320);
   const scrollRef = useRef<HTMLDivElement>(null);
   const activeLineRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
@@ -298,6 +302,35 @@ const LiveTutor: React.FC<LiveTutorProps> = ({
       return null;
     }
   }, [story.content, zhuyinActive]);
+
+  /* ---- resizable right panel ---- */
+  useEffect(() => {
+    const onMouseMove = (e: MouseEvent) => {
+      if (!isDraggingRef.current) return;
+      const delta = dragStartXRef.current - e.clientX;
+      setRightPanelWidth(Math.max(240, Math.min(600, dragStartWidthRef.current + delta)));
+    };
+    const onMouseUp = () => {
+      isDraggingRef.current = false;
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+    };
+  }, []);
+
+  const onDividerMouseDown = (e: React.MouseEvent) => {
+    isDraggingRef.current = true;
+    dragStartXRef.current = e.clientX;
+    dragStartWidthRef.current = rightPanelWidth;
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+    e.preventDefault();
+  };
 
   /* ---- cleanup on unmount ---- */
   useEffect(() => {
@@ -684,7 +717,7 @@ const LiveTutor: React.FC<LiveTutorProps> = ({
       </div>
 
       {/* CENTER: Editor */}
-      <div className="flex-1 flex flex-col bg-[#0d1117] border-r border-[#30363d]">
+      <div className="flex-1 flex flex-col bg-[#0d1117]">
         <div className="h-9 bg-[#161b22] border-b border-[#30363d] flex items-center px-2 gap-2">
           <button
             onClick={() => setShowExplorer(!showExplorer)}
@@ -752,8 +785,14 @@ const LiveTutor: React.FC<LiveTutorProps> = ({
         </div>
       </div>
 
+      {/* Resizable divider */}
+      <div
+        onMouseDown={onDividerMouseDown}
+        className="w-1 flex-shrink-0 bg-[#30363d] hover:bg-indigo-500 cursor-col-resize transition-colors"
+      />
+
       {/* RIGHT: Interaction panel */}
-      <div className="w-80 flex-shrink-0 bg-[#0d1117] flex flex-col h-full min-h-0">
+      <div className="flex-shrink-0 bg-[#0d1117] flex flex-col h-full min-h-0" style={{ width: rightPanelWidth }}>
         <div className="h-9 flex-shrink-0 bg-[#161b22] border-b border-[#30363d] flex items-center px-4">
           <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">
             Live Feedback

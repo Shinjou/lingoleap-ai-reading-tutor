@@ -31,3 +31,31 @@ export async function createLearningSession(payload: {
   if (!res.ok) throw new Error(`createLearningSession failed: ${res.status}`);
   return res.json();
 }
+
+export interface ConversationTurn {
+  role: 'ai' | 'student';
+  text: string;
+}
+
+export interface ComprehensionResponse {
+  question: string;
+  question_number: number;
+}
+
+export async function askComprehensionQuestion(payload: {
+  storyTitle: string;
+  storyText: string;
+  conversation: ConversationTurn[];
+}): Promise<ComprehensionResponse> {
+  const res = await fetch(`${API_BASE}/api/comprehension/question`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      story_title: payload.storyTitle,
+      story_text: payload.storyText,
+      conversation: payload.conversation,
+    }),
+  });
+  if (!res.ok) throw new Error(`askComprehensionQuestion failed: ${res.status}`);
+  return res.json();
+}

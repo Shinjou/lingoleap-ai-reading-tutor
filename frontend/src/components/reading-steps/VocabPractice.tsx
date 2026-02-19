@@ -1,8 +1,9 @@
 
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Story, ReadingAttempt } from '../../types';
 import { hasStrokeData } from '../stroke-order/strokeData';
 import WriteCharacter from '../stroke-order/WriteCharacter';
+import { PolyphonicProcessor, buildZhuyinString } from '../zhuyin/polyphonicProcessor';
 
 interface VocabPracticeProps {
   story: Story;
@@ -17,6 +18,26 @@ const VocabPractice: React.FC<VocabPracticeProps> = ({ story, attempt, onFinish,
   const [phase, setPhase] = useState<Phase>('grid');
   const [practicingChar, setPracticingChar] = useState('');
   const [practicedChars, setPracticedChars] = useState<Set<string>>(new Set());
+  const [zhuyinEnabled, setZhuyinEnabled] = useState(true);
+  const [zhuyinReady, setZhuyinReady] = useState(false);
+
+  const zhuyinActive = zhuyinReady && zhuyinEnabled;
+
+  useEffect(() => {
+    PolyphonicProcessor.instance.loadPolyphonicData()
+      .then(() => setZhuyinReady(true))
+      .catch((err) => console.error('Failed to load zhuyin data:', err));
+  }, []);
+
+  const processZhuyin = useCallback((text: string): string => {
+    if (!zhuyinActive) return text;
+    try {
+      const processed = PolyphonicProcessor.instance.process(text);
+      return buildZhuyinString(processed);
+    } catch {
+      return text;
+    }
+  }, [zhuyinActive]);
 
   /** Characters from low-match-rate paragraphs (suggested practice) */
   const needPracticeSet = useMemo(
@@ -83,24 +104,33 @@ const VocabPractice: React.FC<VocabPracticeProps> = ({ story, attempt, onFinish,
   const allDone = displayChars.length > 0 && displayChars.every(ch => practicedChars.has(ch));
 
   return (
-    <div className="flex-1 flex flex-col bg-[#0d1117] overflow-hidden">
-      {/* Top bar */}
-      <div className="h-9 bg-[#161b22] border-b border-[#30363d] flex items-center px-4 gap-3">
-        <button
-          onClick={onBack}
-          className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-300 transition-colors"
-        >
-          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
-          </svg>
-          逐段朗讀
-        </button>
-        <span className="text-slate-700 text-xs">›</span>
-        <span className="text-xs text-indigo-400 font-bold">生字練習</span>
+    <div
+      className="flex-1 flex flex-col bg-[#0d1117] overflow-hidden"
+      style={{
+        fontFamily: zhuyinActive
+          ? "'BpmfIansui', 'Iansui', 'Noto Sans TC', sans-serif"
+          : "'Iansui', 'Noto Sans TC', sans-serif",
+      }}
+    >
+      {/* Tab bar — VS Code style */}
+      <div className="h-9 bg-[#161b22] border-b border-[#30363d] flex items-center px-2 gap-2 shrink-0">
+        <div className="h-full px-4 flex items-center bg-[#0d1117] border-t-2 border-indigo-500 border-x border-[#30363d] text-xs text-slate-200 gap-2">
+          {story.filename} — 生字練習
+        </div>
         <div className="flex-1" />
-        <span className="text-[10px] text-slate-600">
+        <span className="text-[10px] text-slate-500">
           已練習 {practicedChars.size} / {displayChars.length} 字
         </span>
+        <button
+          onClick={() => setZhuyinEnabled(!zhuyinEnabled)}
+          className={`px-2.5 py-1 rounded text-xs transition-colors ${
+            zhuyinEnabled && zhuyinReady
+              ? 'bg-indigo-600/80 text-white hover:bg-indigo-500'
+              : 'bg-[#30363d] text-slate-400 hover:bg-[#3d444d]'
+          }`}
+        >
+          注音 {zhuyinEnabled ? 'ON' : 'OFF'}
+        </button>
       </div>
 
       {/* Main content */}
@@ -110,7 +140,7 @@ const VocabPractice: React.FC<VocabPracticeProps> = ({ story, attempt, onFinish,
           {/* Header */}
           <div>
             <h2 className="text-xl font-black text-white mb-1">生字練習</h2>
-            <p className="text-sm text-slate-500">
+            <p className="text-sm text-slate-400">
               {needPracticeSet.size > 0
                 ? `朗讀時漏掉了以下 ${Math.min(needPracticeSet.size, 12)} 個字，點一點來練習筆順吧！`
                 : '讀得很棒！沒有漏字。想再練習這篇的字嗎？'}
@@ -130,15 +160,17 @@ const VocabPractice: React.FC<VocabPracticeProps> = ({ story, attempt, onFinish,
                     key={ch}
                     onClick={() => handlePractice(ch)}
                     className={[
-                      'relative flex flex-col items-center justify-center aspect-square rounded-2xl border transition-all active:scale-95',
+                      `relative flex flex-col items-center justify-center ${zhuyinActive ? 'aspect-[3/4]' : 'aspect-square'} rounded-2xl border transition-all active:scale-95`,
                       isPracticed
                         ? 'bg-emerald-900/30 border-emerald-700/50 text-emerald-300'
                         : isSuggested
                           ? 'bg-amber-900/30 border-amber-600/60 text-amber-200 ring-1 ring-amber-500/30 hover:bg-amber-900/50'
-                          : 'bg-[#161b22] border-[#30363d] text-slate-300 hover:bg-[#21262d] hover:border-indigo-500/40',
+                          : 'bg-[#161b22] border-[#30363d] text-slate-200 hover:bg-[#21262d] hover:border-indigo-500/40',
                     ].join(' ')}
                   >
-                    <span className="text-2xl font-bold leading-none">{ch}</span>
+                    <span className={`text-2xl font-bold ${zhuyinActive ? 'leading-[2.6]' : 'leading-none'}`}>
+                    {processZhuyin(ch)}
+                  </span>
 
                     {/* Suggested badge */}
                     {isSuggested && !isPracticed && (
@@ -190,7 +222,7 @@ const VocabPractice: React.FC<VocabPracticeProps> = ({ story, attempt, onFinish,
       <div className="flex-shrink-0 bg-[#161b22] border-t border-[#30363d] px-6 py-4 flex items-center justify-between">
         <button
           onClick={onBack}
-          className="px-4 py-2 rounded-xl text-sm text-slate-500 hover:text-slate-300 transition-colors"
+          className="px-4 py-2 rounded-xl text-sm text-slate-400 hover:text-slate-200 transition-colors"
         >
           回到朗讀
         </button>
