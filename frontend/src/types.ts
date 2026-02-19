@@ -2,9 +2,16 @@
 export enum AppView {
   HOME = 'HOME',
   LIBRARY = 'LIBRARY',
+  INTRO = 'INTRO',
   TUTOR = 'TUTOR',
+  VOCAB = 'VOCAB',
   REPORT = 'REPORT',
   WRITE = 'WRITE',
+}
+
+export interface StoryIntro {
+  author: string;
+  background: string;
 }
 
 export interface Story {
@@ -15,6 +22,7 @@ export interface Story {
   thumbnail: string;
   category: 'Fable' | 'Science' | 'History' | 'Daily';
   filename: string;
+  intro?: StoryIntro;
 }
 
 export interface ReadingAttempt {

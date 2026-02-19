@@ -2,7 +2,9 @@
 import React, { useState } from 'react';
 import { AppView, Story, ReadingAttempt } from './types';
 import StoryLibrary, { MOCK_STORIES } from './pages/student/StoryLibrary';
+import Intro from './components/reading-steps/Intro';
 import LiveTutor from './components/reading-steps/LiveTutor';
+import VocabPractice from './components/reading-steps/VocabPractice';
 import AssessmentReport from './components/reading-steps/AssessmentReport';
 import WriteCharacter from './components/stroke-order/WriteCharacter';
 
@@ -13,13 +15,21 @@ const App: React.FC = () => {
   const [writingChar, setWritingChar] = useState('');
   const [writeInput, setWriteInput] = useState('');
 
-  const handleStartReading = (story: Story) => {
+  const handleSelectStory = (story: Story) => {
     setSelectedStory(story);
+    setView(AppView.INTRO);
+  };
+
+  const handleStartReading = () => {
     setView(AppView.TUTOR);
   };
 
   const handleFinishReading = (attempt: ReadingAttempt) => {
     setLastAttempt(attempt);
+    setView(AppView.VOCAB);
+  };
+
+  const handleFinishVocab = () => {
     setView(AppView.REPORT);
   };
 
@@ -66,17 +76,34 @@ const App: React.FC = () => {
         {view === AppView.LIBRARY && (
           <div className="p-8 max-w-7xl mx-auto w-full">
             <h2 className="text-2xl font-bold text-white mb-8">選擇讀本</h2>
-            <StoryLibrary onStartReading={handleStartReading} />
+            <StoryLibrary onStartReading={handleSelectStory} />
           </div>
         )}
 
+        {view === AppView.INTRO && selectedStory && (
+          <Intro
+            story={selectedStory}
+            onStartReading={handleStartReading}
+            onBack={() => setView(AppView.LIBRARY)}
+          />
+        )}
+
         {view === AppView.TUTOR && selectedStory && (
-          <LiveTutor 
+          <LiveTutor
             story={selectedStory}
             allStories={MOCK_STORIES}
-            onFinish={handleFinishReading} 
+            onFinish={handleFinishReading}
             onCancel={() => setView(AppView.LIBRARY)}
-            onSelectStory={setSelectedStory}
+            onSelectStory={(s) => { setSelectedStory(s); setView(AppView.INTRO); }}
+          />
+        )}
+
+        {view === AppView.VOCAB && selectedStory && lastAttempt && (
+          <VocabPractice
+            story={selectedStory}
+            attempt={lastAttempt}
+            onFinish={handleFinishVocab}
+            onBack={() => setView(AppView.TUTOR)}
           />
         )}
 

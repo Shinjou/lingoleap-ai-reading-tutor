@@ -50,6 +50,49 @@ const LAST_LINE_MESSAGE = '全部唸完了！你好棒，辛苦了！';
 
 const pick = (pool: string[]) => pool[Math.floor(Math.random() * pool.length)];
 
+/**
+ * Extract Chinese characters the student actually missed on their LAST attempt
+ * per paragraph. Characters present in the target but absent from the
+ * (homophone-corrected) spoken transcript are collected.
+ *
+ * Using only the last attempt per line is fair: if the student retried and
+ * eventually read the paragraph well, we don't penalise earlier stumbles.
+ */
+const extractPracticeChars = (results: LineResult[], content: string[]): string[] => {
+  // Keep only the last result for each lineIndex
+  const lastByLine = new Map<number, LineResult>();
+  for (const r of results) {
+    lastByLine.set(r.lineIndex, r); // later entry overwrites earlier
+  }
+
+  const chars = new Set<string>();
+  for (const r of lastByLine.values()) {
+    const targetText = content[r.lineIndex] || '';
+    const targetNorm = normalizeForComparison(targetText);
+    const spokenNorm = normalizeForComparison(
+      correctHomophones(r.transcript, targetNorm),
+    );
+
+    // Build spoken character frequency map
+    const spokenFreq: Record<string, number> = {};
+    for (const ch of spokenNorm) {
+      if (/[\u4e00-\u9fa5]/.test(ch)) spokenFreq[ch] = (spokenFreq[ch] || 0) + 1;
+    }
+
+    // Collect target characters that were not (fully) spoken
+    for (const ch of targetNorm) {
+      if (/[\u4e00-\u9fa5]/.test(ch)) {
+        if (!spokenFreq[ch] || spokenFreq[ch] <= 0) {
+          chars.add(ch);
+        } else {
+          spokenFreq[ch]--;
+        }
+      }
+    }
+  }
+  return Array.from(chars).slice(0, 12);
+};
+
 /* ------------------------------------------------------------------ */
 /*  Text processing helpers                                           */
 /* ------------------------------------------------------------------ */
@@ -367,7 +410,7 @@ const LiveTutor: React.FC<LiveTutorProps> = ({
         const overallCpm = totalDurationSec > 0 ? Math.round((totalChars / totalDurationSec) * 60) : 0;
         onFinish({
           storyId: story.id, accuracy: Math.round(avgMatchRate * 100), fluency: overallCpm,
-          cpm: overallCpm, mispronouncedWords: [],
+          cpm: overallCpm, mispronouncedWords: extractPracticeChars(allResults, story.content),
           transcription: allResults.map(r => r.transcript).join(' '), timestamp: Date.now(),
         });
       }, 2000);
@@ -574,7 +617,7 @@ const LiveTutor: React.FC<LiveTutorProps> = ({
     const overallCpm = totalDurationSec > 0 ? Math.round((totalChars / totalDurationSec) * 60) : 0;
     onFinish({
       storyId: story.id, accuracy: Math.round(avgMatchRate * 100), fluency: overallCpm,
-      cpm: overallCpm, mispronouncedWords: [],
+      cpm: overallCpm, mispronouncedWords: extractPracticeChars(lineResults, story.content),
       transcription: lineResults.map(r => r.transcript).join(' '), timestamp: Date.now(),
     });
   };

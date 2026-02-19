@@ -13,7 +13,7 @@
 這是一個繁體中文閱讀理解學習平台，目標用戶是台灣三年級至國中生（已進入「read to learn」階段）。
 平台扮演「溫暖但堅定」的蘇格拉底式 AI 助教，透過六步驟引導學生完成閱讀學習。
 
-**目前版本：0.2.x**
+**目前版本：0.2.2**
 **GitHub：** https://github.com/Shinjou/lingoleap-ai-reading-tutor
 
 ---
@@ -174,12 +174,15 @@ STT 結果在前端即時修正（零延遲），同時後端 `stt_service.py` �
 ## 已完成功能（勿覆蓋）
 
 - 注音符號 On/Off 切換（`frontend/src/components/zhuyin/`）
-- 逐段朗讀 Demo（STT + 鼓勵回饋機制）
-- 中文書寫練習（筆順動畫 + 描紅）
-- 評估報告（AssessmentReport）
+- 步驟一：簡介（`Intro.tsx`，TTS 朗讀簡介，作者 + 背景說明）
+- 步驟二：逐段朗讀（TTS + STT + 鼓勵回饋機制）
+- 步驟四：生字練習（`VocabPractice.tsx`，漏字/錯字偵測 + WriteCharacter 筆順）
+- 評估報告（`AssessmentReport.tsx`）
+- 中文書寫練習（筆順動畫 + 描紅，`WriteCharacter.tsx`）
 - FastAPI 後端骨架（routes/services/models）
 - backend stt_service.py（Python 版同音字修正 + 評分）
 - pytest 測試套件
+- 生字選字邏輯文件（`docs/vocab-selection-logic.md`）
 
 ---
 
@@ -221,6 +224,9 @@ STT 結果在前端即時修正（零延遲），同時後端 `stt_service.py` �
 - 同步更新 `frontend/src/utils/pinyin.ts`（client-side，低延遲版）
 - 必須同步更新 `backend/tests/test_stt_service.py`
 - 修改後說明測試結果
+
+### TTS 語音
+- 用 Google 台灣 語音
 
 ### 新增學習步驟 UI
 - 在 `frontend/src/components/reading-steps/` 建立新元件
