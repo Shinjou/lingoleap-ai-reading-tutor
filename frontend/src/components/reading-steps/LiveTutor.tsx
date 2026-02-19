@@ -9,21 +9,21 @@ import { PolyphonicProcessor, buildZhuyinString } from '../zhuyin/polyphonicProc
 /* ------------------------------------------------------------------ */
 
 const TIER1_POOL = [
-  '唸得很棒！下一句。',
-  '真厲害！下一句。',
-  '讀得好清楚！下一句。',
-  '好棒喔！下一句。',
-  '很流利呢！下一句。',
-  '讀得很棒！下一句。',
+  '唸得很棒！下一段。',
+  '真厲害！下一段。',
+  '讀得好清楚！下一段。',
+  '好棒喔！下一段。',
+  '很流利呢！下一段。',
+  '讀得很棒！下一段。',
 ];
 
 const TIER2_POOL = [
-  '唸得不錯！下一句。',
-  '很好！下一句。',
-  '不錯不錯！下一句。',
-  '加油，繼續下一句！',
-  '好的，繼續下一句！',
-  '唸得可以喔！下一句。',
+  '唸得不錯！下一段。',
+  '很好！下一段。',
+  '不錯不錯！下一段。',
+  '加油，繼續下一段！',
+  '好的，繼續下一段！',
+  '唸得可以喔！下一段。',
 ];
 
 const TIER3_POOL = [
@@ -41,9 +41,9 @@ const STREAK_MESSAGES = [
   '', // 0 streak — unused
   '', // 1 streak — just use normal pool
   '', // 2 streak — just use normal pool
-  '連續三句都唸對了，好厲害！',
-  '連續四句了！你好棒！',
-  '五句都對！你是朗讀小達人！',
+  '連續三段都唸對了，好厲害！',
+  '連續四段了！你好棒！',
+  '五段都對！你是朗讀小達人！',
 ];
 
 const LAST_LINE_MESSAGE = '全部唸完了！你好棒，辛苦了！';
@@ -190,6 +190,7 @@ const LiveTutor: React.FC<LiveTutorProps> = ({
   const [streak, setStreak] = useState(0);
   const [zhuyinEnabled, setZhuyinEnabled] = useState(true);
   const [zhuyinReady, setZhuyinReady] = useState(false);
+  const [isTtsSpeaking, setIsTtsSpeaking] = useState(false);
 
   const isAdvancingRef = useRef(false);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -262,6 +263,7 @@ const LiveTutor: React.FC<LiveTutorProps> = ({
       if (recognitionRef.current) {
         try { recognitionRef.current.abort(); } catch (_) {}
       }
+      window.speechSynthesis?.cancel();
     };
   }, []);
 
@@ -347,12 +349,11 @@ const LiveTutor: React.FC<LiveTutorProps> = ({
     if (shouldAdvance && !isAdvancingRef.current) {
       isAdvancingRef.current = true;
       setIsAdvancing(true);
+      stopSession(); // stop mic so student sees [系統朗讀][開始朗讀] for the next paragraph
       setTimeout(() => {
         setCurrentLineIndex(prev => prev + 1);
         isAdvancingRef.current = false;
         setIsAdvancing(false);
-        // Reset sentence timer for next line
-        sentenceStartTimeRef.current = Date.now();
       }, 1500);
     } else if (shouldFinish) {
       stopSession();
@@ -383,11 +384,13 @@ const LiveTutor: React.FC<LiveTutorProps> = ({
   /*  – Recognition starts once and stays open across sentences        */
   /*  – continuous = true  → never cuts off on pauses                  */
   /*  – auto-reconnects on browser/API timeout                         */
-  /*  – user clicks 完成這句 to submit; recognition keeps running      */
+  /*  – user clicks 完成這段 to submit; recognition keeps running      */
   /* ================================================================ */
 
   const startSession = () => {
     if (isSessionActiveRef.current) return;
+    window.speechSynthesis?.cancel();
+    setIsTtsSpeaking(false);
     setIsPreparing(true);
     setMicError('');
 
@@ -517,6 +520,43 @@ const LiveTutor: React.FC<LiveTutorProps> = ({
     accumulatedTranscriptRef.current = '';
     setStreamingUserInput('');
   };
+
+  /** Use browser TTS to read the current paragraph aloud. */
+  const speakCurrentParagraph = useCallback(() => {
+    const text = story.content[currentLineIndex];
+    if (!text || !window.speechSynthesis) return;
+    window.speechSynthesis.cancel();
+
+    const doSpeak = () => {
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = 'zh-TW';
+      utterance.rate = 1.0;
+
+      // Prefer Google Taiwan, fall back to any zh-TW, then any zh
+      const voices = window.speechSynthesis.getVoices();
+      const preferred =
+        voices.find(v => v.name.includes('Google') && v.name.includes('Taiwan')) ||
+        voices.find(v => v.name.includes('Google') && v.lang === 'zh-TW') ||
+        voices.find(v => v.lang === 'zh-TW') ||
+        voices.find(v => v.lang.startsWith('zh'));
+      if (preferred) utterance.voice = preferred;
+
+      utterance.onstart = () => setIsTtsSpeaking(true);
+      utterance.onend = () => setIsTtsSpeaking(false);
+      utterance.onerror = () => setIsTtsSpeaking(false);
+      window.speechSynthesis.speak(utterance);
+    };
+
+    // If voices not yet loaded, wait for them then speak
+    if (window.speechSynthesis.getVoices().length === 0) {
+      window.speechSynthesis.onvoiceschanged = () => {
+        window.speechSynthesis.onvoiceschanged = null;
+        doSpeak();
+      };
+    } else {
+      doSpeak();
+    }
+  }, [story.content, currentLineIndex]);
 
   /* ================================================================ */
   /*  Finish / manual nav                                             */
@@ -658,7 +698,7 @@ const LiveTutor: React.FC<LiveTutorProps> = ({
 
         <div className="h-7 bg-[#161b22] border-t border-[#30363d] flex items-center px-4 justify-between text-[10px] text-slate-500 uppercase">
           <div className="flex gap-4">
-            <span>Ln {currentLineIndex + 1}, Col 1</span>
+            <span>段 {currentLineIndex + 1} / {story.content.length}</span>
             <span>UTF-8</span>
           </div>
           <div className="flex gap-3">
@@ -707,7 +747,7 @@ const LiveTutor: React.FC<LiveTutorProps> = ({
                 LISTENING
               </span>
               <div className={`px-3 py-2 rounded-2xl text-sm bg-green-900/30 text-green-200 border border-green-700/30 rounded-tl-none ${zhuyinActive ? 'leading-[2.4]' : ''}`}>
-                {processZhuyin('請朗讀上方的句子')}
+                {processZhuyin('請朗讀上方的段落')}
               </div>
             </div>
           )}
@@ -729,7 +769,7 @@ const LiveTutor: React.FC<LiveTutorProps> = ({
                 NEXT...
               </span>
               <div className={`px-3 py-2 rounded-2xl text-sm bg-[#21262d] text-indigo-300 border border-indigo-900/30 rounded-tl-none ${zhuyinActive ? 'leading-[2.4]' : ''}`}>
-                {processZhuyin('正在前往下一句...')}
+                {processZhuyin('正在前往下一段...')}
               </div>
             </div>
           )}
@@ -749,13 +789,25 @@ const LiveTutor: React.FC<LiveTutorProps> = ({
 
           <div className="flex gap-2">
             {isPreparing ? (
-              <button
-                disabled
-                className="flex-1 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2 bg-slate-800 text-slate-400 cursor-wait"
-              >
-                <div className="w-3 h-3 border-2 border-slate-400 border-t-transparent rounded-full animate-spin" />
-                {processZhuyin('準備中...')}
-              </button>
+              <>
+                {/* 系統朗讀 disabled while mic is initializing */}
+                <button
+                  disabled
+                  className="flex-1 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2 bg-slate-900 text-slate-700 cursor-not-allowed"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.536 8.464a5 5 0 010 7.072M12 6v12m-3.536-9.536a5 5 0 000 7.072" />
+                  </svg>
+                  {processZhuyin('系統朗讀')}
+                </button>
+                <button
+                  disabled
+                  className="flex-1 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2 bg-slate-800 text-slate-400 cursor-wait"
+                >
+                  <div className="w-3 h-3 border-2 border-slate-400 border-t-transparent rounded-full animate-spin" />
+                  {processZhuyin('準備中...')}
+                </button>
+              </>
             ) : isSessionActive ? (
               <button
                 onClick={submitSentence}
@@ -769,21 +821,39 @@ const LiveTutor: React.FC<LiveTutorProps> = ({
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
                 </svg>
-                {processZhuyin(isAdvancing ? '請稍候...' : '完成這句')}
+                {processZhuyin(isAdvancing ? '請稍候...' : '完成這段')}
               </button>
             ) : (
-              <button
-                onClick={startSession}
-                disabled={isAdvancing}
-                className={`flex-1 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all shadow active:scale-95 ${
-                  isAdvancing
-                    ? 'bg-slate-800 text-slate-600 cursor-not-allowed opacity-50'
-                    : 'bg-indigo-600 hover:bg-indigo-500 text-white'
-                }`}
-              >
-                <div className="w-2.5 h-2.5 bg-white rounded-full" />
-                {processZhuyin(isAdvancing ? '請稍候...' : '開始朗讀')}
-              </button>
+              <>
+                {/* 系統朗讀 */}
+                <button
+                  onClick={speakCurrentParagraph}
+                  disabled={isTtsSpeaking}
+                  className={`flex-1 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all shadow active:scale-95 ${
+                    isTtsSpeaking
+                      ? 'bg-amber-800/60 text-amber-300 cursor-wait'
+                      : 'bg-slate-700 hover:bg-slate-600 text-slate-200'
+                  }`}
+                >
+                  <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.536 8.464a5 5 0 010 7.072M12 6v12m-3.536-9.536a5 5 0 000 7.072" />
+                  </svg>
+                  {processZhuyin(isTtsSpeaking ? '播放中...' : '系統朗讀')}
+                </button>
+                {/* 開始朗讀 */}
+                <button
+                  onClick={startSession}
+                  disabled={isAdvancing}
+                  className={`flex-1 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all shadow active:scale-95 ${
+                    isAdvancing
+                      ? 'bg-slate-800 text-slate-600 cursor-not-allowed opacity-50'
+                      : 'bg-indigo-600 hover:bg-indigo-500 text-white'
+                  }`}
+                >
+                  <div className="w-2.5 h-2.5 bg-white rounded-full" />
+                  {processZhuyin(isAdvancing ? '請稍候...' : '開始朗讀')}
+                </button>
+              </>
             )}
           </div>
 
@@ -802,7 +872,7 @@ const LiveTutor: React.FC<LiveTutorProps> = ({
                   : 'bg-slate-800 hover:bg-slate-700 text-slate-400'
               }`}
             >
-              {processZhuyin('上一句')}
+              {processZhuyin('上一段')}
             </button>
             <button
               onClick={() => {
@@ -815,7 +885,7 @@ const LiveTutor: React.FC<LiveTutorProps> = ({
               }}
               className={`flex-1 py-2 bg-slate-800 hover:bg-slate-700 text-slate-400 rounded-lg text-xs font-bold border border-[#30363d] ${zhuyinActive ? 'leading-[2.4]' : ''}`}
             >
-              {processZhuyin(currentLineIndex === story.content.length - 1 ? '觀看總結報告' : '下一句')}
+              {processZhuyin(currentLineIndex === story.content.length - 1 ? '觀看總結報告' : '下一段')}
             </button>
           </div>
 
