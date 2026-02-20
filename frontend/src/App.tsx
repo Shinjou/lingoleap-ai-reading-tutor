@@ -26,6 +26,7 @@ const App: React.FC = () => {
   const [lastAttempt, setLastAttempt] = useState<ReadingAttempt | null>(null);
   const [writingChar, setWritingChar] = useState('');
   const [writeInput, setWriteInput] = useState('');
+  const [rightPanelWidth, setRightPanelWidth] = useState(320);
 
   const handleSelectStory = (story: Story) => {
     setSelectedStory(story);
@@ -154,6 +155,8 @@ const App: React.FC = () => {
         {view === AppView.TUTOR && selectedStory && (
           <LiveTutor
             story={selectedStory}
+            rightPanelWidth={rightPanelWidth}
+            onPanelWidthChange={setRightPanelWidth}
             onFinish={handleFinishReading}
             onCancel={() => setView(AppView.LIBRARY)}
           />
@@ -163,6 +166,8 @@ const App: React.FC = () => {
           <ComprehensionChat
             story={selectedStory}
             attempt={lastAttempt ?? EMPTY_ATTEMPT}
+            rightPanelWidth={rightPanelWidth}
+            onPanelWidthChange={setRightPanelWidth}
             onFinish={handleFinishComprehension}
             onBack={() => setView(AppView.TUTOR)}
           />
@@ -180,6 +185,8 @@ const App: React.FC = () => {
         {view === AppView.FULL_READING && selectedStory && (
           <FullReading
             story={selectedStory}
+            rightPanelWidth={rightPanelWidth}
+            onPanelWidthChange={setRightPanelWidth}
             onFinish={() => setView(AppView.REPORT)}
             onBack={() => setView(AppView.VOCAB)}
           />

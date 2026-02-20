@@ -208,12 +208,16 @@ interface LineResult {
 
 interface LiveTutorProps {
   story: Story;
+  rightPanelWidth: number;
+  onPanelWidthChange: (w: number) => void;
   onFinish: (attempt: ReadingAttempt) => void;
   onCancel: () => void;
 }
 
 const LiveTutor: React.FC<LiveTutorProps> = ({
   story,
+  rightPanelWidth,
+  onPanelWidthChange,
   onFinish,
   onCancel,
 }) => {
@@ -229,7 +233,7 @@ const LiveTutor: React.FC<LiveTutorProps> = ({
   const [zhuyinEnabled, setZhuyinEnabled] = useState(true);
   const [zhuyinReady, setZhuyinReady] = useState(false);
   const [isTtsSpeaking, setIsTtsSpeaking] = useState(false);
-  const [rightPanelWidth, setRightPanelWidth] = useState(320);
+  const [isTtsPaused, setIsTtsPaused] = useState(false);
 
   const isAdvancingRef = useRef(false);
   const isDraggingRef = useRef(false);
@@ -303,7 +307,7 @@ const LiveTutor: React.FC<LiveTutorProps> = ({
     const onMouseMove = (e: MouseEvent) => {
       if (!isDraggingRef.current) return;
       const delta = dragStartXRef.current - e.clientX;
-      setRightPanelWidth(Math.max(240, Math.min(600, dragStartWidthRef.current + delta)));
+      onPanelWidthChange(Math.max(240, Math.min(600, dragStartWidthRef.current + delta)));
     };
     const onMouseUp = () => {
       isDraggingRef.current = false;
@@ -462,6 +466,7 @@ const LiveTutor: React.FC<LiveTutorProps> = ({
     if (isSessionActiveRef.current) return;
     window.speechSynthesis?.cancel();
     setIsTtsSpeaking(false);
+    setIsTtsPaused(false);
     setIsPreparing(true);
     setMicError('');
 
@@ -597,6 +602,7 @@ const LiveTutor: React.FC<LiveTutorProps> = ({
     const text = story.content[currentLineIndex];
     if (!text || !window.speechSynthesis) return;
     window.speechSynthesis.cancel();
+    setIsTtsPaused(false);
 
     const doSpeak = () => {
       const utterance = new SpeechSynthesisUtterance(text);
@@ -613,8 +619,8 @@ const LiveTutor: React.FC<LiveTutorProps> = ({
       if (preferred) utterance.voice = preferred;
 
       utterance.onstart = () => setIsTtsSpeaking(true);
-      utterance.onend = () => setIsTtsSpeaking(false);
-      utterance.onerror = () => setIsTtsSpeaking(false);
+      utterance.onend = () => { setIsTtsSpeaking(false); setIsTtsPaused(false); };
+      utterance.onerror = () => { setIsTtsSpeaking(false); setIsTtsPaused(false); };
       window.speechSynthesis.speak(utterance);
     };
 
@@ -628,6 +634,20 @@ const LiveTutor: React.FC<LiveTutorProps> = ({
       doSpeak();
     }
   }, [story.content, currentLineIndex]);
+
+  const pauseTts = () => {
+    window.speechSynthesis?.pause();
+    setIsTtsPaused(true);
+  };
+  const resumeTts = () => {
+    window.speechSynthesis?.resume();
+    setIsTtsPaused(false);
+  };
+  const stopTts = () => {
+    window.speechSynthesis?.cancel();
+    setIsTtsSpeaking(false);
+    setIsTtsPaused(false);
+  };
 
   /* ================================================================ */
   /*  Finish / manual nav                                             */
@@ -840,22 +860,47 @@ const LiveTutor: React.FC<LiveTutorProps> = ({
                 </svg>
                 {processZhuyin(isAdvancing ? '請稍候...' : '完成這段')}
               </button>
+            ) : isTtsSpeaking ? (
+              <>
+                {/* 暫停 / 繼續 */}
+                <button
+                  onClick={isTtsPaused ? resumeTts : pauseTts}
+                  className={`flex-1 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all shadow active:scale-95 ${
+                    isTtsPaused
+                      ? 'bg-emerald-700 hover:bg-emerald-600 text-white'
+                      : 'bg-amber-700 hover:bg-amber-600 text-white'
+                  }`}
+                >
+                  <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    {isTtsPaused
+                      ? <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                      : <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 9v6m4-6v6" />
+                    }
+                  </svg>
+                  {processZhuyin(isTtsPaused ? '繼續' : '暫停')}
+                </button>
+                {/* 停止 */}
+                <button
+                  onClick={stopTts}
+                  className="flex-1 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2 bg-slate-700 hover:bg-slate-600 text-slate-200 transition-all shadow active:scale-95"
+                >
+                  <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 10h6v4H9z" />
+                  </svg>
+                  {processZhuyin('停止')}
+                </button>
+              </>
             ) : (
               <>
                 {/* 系統朗讀 */}
                 <button
                   onClick={speakCurrentParagraph}
-                  disabled={isTtsSpeaking}
-                  className={`flex-1 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all shadow active:scale-95 ${
-                    isTtsSpeaking
-                      ? 'bg-amber-800/60 text-amber-300 cursor-wait'
-                      : 'bg-slate-700 hover:bg-slate-600 text-slate-200'
-                  }`}
+                  className="flex-1 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2 bg-slate-700 hover:bg-slate-600 text-slate-200 transition-all shadow active:scale-95"
                 >
                   <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.536 8.464a5 5 0 010 7.072M12 6v12m-3.536-9.536a5 5 0 000 7.072" />
                   </svg>
-                  {processZhuyin(isTtsSpeaking ? '播放中...' : '系統朗讀')}
+                  {processZhuyin('系統朗讀')}
                 </button>
                 {/* 開始朗讀 */}
                 <button

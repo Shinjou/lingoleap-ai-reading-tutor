@@ -6,6 +6,8 @@ import { PolyphonicProcessor, buildZhuyinString } from '../zhuyin/polyphonicProc
 interface ComprehensionChatProps {
   story: Story;
   attempt: ReadingAttempt;
+  rightPanelWidth: number;
+  onPanelWidthChange: (w: number) => void;
   onFinish: () => void;
   onBack: () => void;
 }
@@ -15,6 +17,8 @@ const REQUIRED_ANSWERS = 3;
 const ComprehensionChat: React.FC<ComprehensionChatProps> = ({
   story,
   attempt,
+  rightPanelWidth,
+  onPanelWidthChange,
   onFinish,
   onBack,
 }) => {
@@ -25,7 +29,6 @@ const ComprehensionChat: React.FC<ComprehensionChatProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [zhuyinEnabled, setZhuyinEnabled] = useState(true);
   const [zhuyinReady, setZhuyinReady] = useState(false);
-  const [rightPanelWidth, setRightPanelWidth] = useState(384);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const initializedRef = useRef(false);
@@ -99,7 +102,7 @@ const ComprehensionChat: React.FC<ComprehensionChatProps> = ({
     const onMouseMove = (e: MouseEvent) => {
       if (!isDraggingRef.current) return;
       const delta = dragStartXRef.current - e.clientX;
-      setRightPanelWidth(Math.max(240, Math.min(600, dragStartWidthRef.current + delta)));
+      onPanelWidthChange(Math.max(240, Math.min(600, dragStartWidthRef.current + delta)));
     };
     const onMouseUp = () => {
       isDraggingRef.current = false;
