@@ -4,7 +4,7 @@
 # CLAUDE.md — Claude Code 專案說明書
 
 > 每次開新對話，Claude Code 會自動讀取本文件。
-> 請保持這份文件是最新狀態。最後更新：2026-02
+> 請保持這份文件是最新狀態。最後更新：2026-02-20
 
 ---
 
@@ -13,7 +13,7 @@
 這是一個繁體中文閱讀理解學習平台，目標用戶是台灣三年級至國中生（已進入「read to learn」階段）。
 平台扮演「溫暖但堅定」的蘇格拉底式 AI 助教，透過六步驟引導學生完成閱讀學習。
 
-**目前版本：0.2.4**
+**目前版本：0.2.5**
 **GitHub：** https://github.com/Shinjou/lingoleap-ai-reading-tutor
 
 ---
@@ -272,6 +272,67 @@ make install         # 安裝前後端依賴
 make dev-frontend    # 啟動前端
 make dev-backend     # 啟動後端
 make test            # 跑後端 pytest
+```
+
+---
+
+## Alpha 部署資訊（GCP，2026-02-20）
+
+### 服務 URL
+| 元件 | URL |
+|------|-----|
+| **Frontend** | https://lingoleap-alpha.web.app |
+| **Backend API** | https://lingoleap-backend-378387040220.asia-east1.run.app |
+
+### GCP 資源
+| 資源 | 詳情 |
+|------|------|
+| GCP 專案 | `lingoleap-alpha`（Project Number: 378387040220） |
+| Billing Account | `chengzhi`（0066E3-604E3C-0AD750） |
+| Cloud Run | `lingoleap-backend`，region: `asia-east1` |
+| Cloud SQL | `lingoleap-db`，PostgreSQL 15，`asia-east1-b`，tier: db-f1-micro |
+| 資料庫 | `lingoleap`，user: `lingoleap_user` |
+| Artifact Registry | `asia-east1-docker.pkg.dev/lingoleap-alpha/lingoleap/` |
+| Firebase Hosting | project: `lingoleap-alpha` |
+
+### 部署指令（更新版本時）
+```bash
+# 1. 建置並推送新 image
+gcloud builds submit \
+  --tag asia-east1-docker.pkg.dev/lingoleap-alpha/lingoleap/backend:vX.Y.Z \
+  --project lingoleap-alpha \
+  ./backend
+
+# 2. 部署新版到 Cloud Run
+gcloud run deploy lingoleap-backend \
+  --image asia-east1-docker.pkg.dev/lingoleap-alpha/lingoleap/backend:vX.Y.Z \
+  --platform managed --region asia-east1 \
+  --project lingoleap-alpha
+
+# 3. 建置並部署前端
+cd frontend
+VITE_API_URL=https://lingoleap-backend-378387040220.asia-east1.run.app npm run build
+firebase deploy --only hosting --project lingoleap-alpha
+```
+
+### Cloud SQL 連線（Cloud Run 內部用 Unix socket）
+```
+DATABASE_URL=postgresql://lingoleap_user:PASSWORD@/lingoleap?host=/cloudsql/lingoleap-alpha:asia-east1:lingoleap-db
+```
+> DB 密碼不在此記錄，請查詢 Cloud Run 環境變數或 Secret Manager
+
+### CORS 設定
+`ALLOWED_ORIGINS` 目前允許：
+- `https://lingoleap-alpha.web.app`
+- `https://lingoleap-alpha.firebaseapp.com`
+- `http://localhost:3000`
+
+更新指令（注意用 `^|^` 避免逗號衝突）：
+```bash
+gcloud run services update lingoleap-backend \
+  --region asia-east1 \
+  --update-env-vars "^|^ALLOWED_ORIGINS=https://NEW_URL,http://localhost:3000" \
+  --project lingoleap-alpha
 ```
 
 ---
