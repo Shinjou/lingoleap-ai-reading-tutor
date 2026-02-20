@@ -10,31 +10,26 @@ import { PolyphonicProcessor, buildZhuyinString } from '../zhuyin/polyphonicProc
 
 const TIER1_POOL = [
   '唸得很棒！下一段。',
-  '真厲害！下一段。',
-  '讀得好清楚！下一段。',
-  '好棒喔！下一段。',
-  '很流利呢！下一段。',
+  '太棒了！下一段。',
+  '讀得很清楚！下一段。',
+  '唸得很流利！下一段。',
   '讀得很棒！下一段。',
 ];
 
 const TIER2_POOL = [
   '唸得不錯！下一段。',
   '很好！下一段。',
-  '不錯不錯！下一段。',
-  '加油，繼續下一段！',
-  '好的，繼續下一段！',
-  '唸得可以喔！下一段。',
+  '不錯，挑戰下一段。',
+  '有進步喔！下一段。',
+  '順利過關，下一段。',
 ];
 
 const TIER3_POOL = [
   '還差一點點，再試一次！',
-  '沒關係，再念一遍看看。',
-  '加油！再念一次。',
+  '不放棄，再唸一遍！',
   '再試一次，你可以的！',
-  '慢慢來，再唸一遍。',
-  '不要急，再讀一次喔。',
-  '別灰心，再念一次！',
-  '仔細看一看，再念一遍。',
+  '要堅毅，再唸一遍。',
+  '要有信心，再讀一次。',
 ];
 
 const STREAK_MESSAGES = [
@@ -46,7 +41,7 @@ const STREAK_MESSAGES = [
   '五段都對！你是朗讀小達人！',
 ];
 
-const LAST_LINE_MESSAGE = '全部唸完了！你好棒，辛苦了！';
+const LAST_LINE_MESSAGE = '全部唸完了！你好棒，恭喜你！';
 
 const pick = (pool: string[]) => pool[Math.floor(Math.random() * pool.length)];
 
